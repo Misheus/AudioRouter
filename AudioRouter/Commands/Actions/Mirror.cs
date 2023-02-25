@@ -18,7 +18,7 @@ namespace AudioRouter.Commands.Actions
             // is latency valid
             if (options.Latency < 1)
             {
-                Console.WriteLine("Error: Latency can not be negative.");
+                Console.WriteLine("Error: Latency can not be negative or zero.");
                 return -2;
             }
 
@@ -31,7 +31,8 @@ namespace AudioRouter.Commands.Actions
                     var defaultDevice = deviceEnum.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
 
                     // get default devices
-                    var sourceDevice = String.IsNullOrEmpty(options.Source) ? defaultDevice : devices.Where(d => d.DeviceID == options.Source).First();
+                    var isSourceDeviceDefaultDevice = String.IsNullOrEmpty(options.Source);
+                    var sourceDevice = isSourceDeviceDefaultDevice ? defaultDevice : devices.Where(d => d.DeviceID == options.Source).First();
                     var destinationDevice = devices.Where(d => d.DeviceID == options.Destination).FirstOrDefault();
 
                     // prevent source and target device as equal
@@ -48,7 +49,7 @@ namespace AudioRouter.Commands.Actions
                         return -3;
                     }
 
-                    Console.WriteLine($"Source: {sourceDevice.FriendlyName}");
+                    Console.WriteLine($"Source: {sourceDevice.FriendlyName}{(isSourceDeviceDefaultDevice?" Default":"")}");
                     Console.WriteLine($"Destination: {destinationDevice.FriendlyName}");
 
                     // make sure the devices stay active
@@ -57,11 +58,12 @@ namespace AudioRouter.Commands.Actions
                         if (e.DeviceState == DeviceState.Active) return;
 
                         // make sure it is not one of the used devices
-                        if (e.DeviceId == destinationDevice.DeviceID || e.DeviceId == sourceDevice.DeviceID)
+                        if (e.DeviceId == destinationDevice.DeviceID/* || e.DeviceId == sourceDevice.DeviceID*/)
                         {
-                            Console.WriteLine("Error: Device no longer valid! Please try reconnecting the device, then restart the application.");
+                            Console.WriteLine("Error: Destination device no longer valid! Please try reconnecting the device, then restart the application.");
                             Environment.Exit(-4);
                         }
+                        //else if (e.DeviceId == sourceDevice.DeviceID) { }//Do we need this?
                     };
 
                     // start capture
@@ -81,6 +83,23 @@ namespace AudioRouter.Commands.Actions
                     // keep capture running
                     while (true)
                     {
+                        if(isSourceDeviceDefaultDevice)
+                        {
+                            var newDefaultDevice = deviceEnum.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
+                            if(newDefaultDevice.DeviceID != defaultDevice.DeviceID)
+                            {
+                                Console.WriteLine($"Default device changed from {defaultDevice.FriendlyName} to {newDefaultDevice.FriendlyName}");
+                                capture.Stop();
+                                capture.Device = newDefaultDevice;
+                                capture.Initialize();
+                                capture.Start();
+                                sourceDevice = defaultDevice = newDefaultDevice;
+                                Console.WriteLine($"Source: {sourceDevice.FriendlyName}{(isSourceDeviceDefaultDevice ? " Default" : "")}");
+                                Console.WriteLine($"Destination: {destinationDevice.FriendlyName}");
+                                Console.WriteLine("Mirroring audio stream...");
+                            }
+                        }
+
                         if (render.PlaybackState == PlaybackState.Playing) Thread.Sleep(50);
                         render.Play();
                     }
