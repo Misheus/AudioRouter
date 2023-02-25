@@ -90,13 +90,19 @@ namespace AudioRouter.Commands.Actions
                             {
                                 Console.WriteLine($"Default device changed from {defaultDevice.FriendlyName} to {newDefaultDevice.FriendlyName}");
                                 capture.Stop();
-                                capture.Device = newDefaultDevice;
-                                capture.Initialize();
-                                capture.Start();
                                 sourceDevice = defaultDevice = newDefaultDevice;
                                 Console.WriteLine($"Source: {sourceDevice.FriendlyName}{(isSourceDeviceDefaultDevice ? " Default" : "")}");
                                 Console.WriteLine($"Destination: {destinationDevice.FriendlyName}");
-                                Console.WriteLine("Mirroring audio stream...");
+                                capture.Device = newDefaultDevice;
+                                capture.Initialize();
+                                if(sourceDevice.DeviceID == destinationDevice.DeviceID)
+                                {
+                                    Console.WriteLine("Source and destination devices are the same! Switch default device in Windows or exit this program.");
+                                } else
+                                {
+                                    capture.Start();
+                                    Console.WriteLine("Mirroring audio stream...");
+                                }
                             }
                         }
 
